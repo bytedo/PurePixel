@@ -100,7 +100,37 @@ const calculateResizedDimensions = (
 };
 
 /**
+ * 检查浏览器是否支持指定格式
+ */
+const checkFormatSupport = async (format: string): Promise<boolean> => {
+  if (format === 'image/avif') {
+    // AVIF 支持检测
+    const canvas = document.createElement('canvas');
+    canvas.width = 1;
+    canvas.height = 1;
+    return new Promise((resolve) => {
+      canvas.toBlob(
+        (blob) => resolve(blob !== null && blob.size > 0),
+        'image/avif',
+        0.5
+      );
+    });
+  }
+  return true;
+};
+
+/**
+ * 获取回退格式
+ */
+const getFallbackFormat = (format: string): string => {
+  // 如果 AVIF 不支持，回退到 WebP
+  if (format === 'image/avif') return 'image/webp';
+  return format;
+};
+
+/**
  * 使用 Canvas 进行图片格式转换和尺寸调整
+ * 增强移动端兼容性：crossOrigin 属性、格式回退、超时处理
  */
 const convertImage = async (
   file: File,
@@ -108,63 +138,107 @@ const convertImage = async (
   enableCompression: boolean,
   resizeOptions?: ResizeOptions
 ): Promise<Blob> => {
+  // 检查格式支持
+  const isFormatSupported = await checkFormatSupport(format);
+  const targetFormat = isFormatSupported ? format : getFallbackFormat(format);
+  
   return new Promise((resolve, reject) => {
     const img = new Image();
     const url = URL.createObjectURL(file);
     
-    img.onload = () => {
-      // 计算目标尺寸
-      const { width, height } = resizeOptions
-        ? calculateResizedDimensions(img.width, img.height, resizeOptions)
-        : { width: img.width, height: img.height };
-      
-      const canvas = document.createElement('canvas');
-      canvas.width = width;
-      canvas.height = height;
-      
-      const ctx = canvas.getContext('2d');
-      if (!ctx) {
-        URL.revokeObjectURL(url);
-        reject(new Error('无法创建 Canvas 上下文'));
-        return;
-      }
-      
-      // 启用高质量缩放
-      ctx.imageSmoothingEnabled = true;
-      ctx.imageSmoothingQuality = 'high';
-      
-      ctx.drawImage(img, 0, 0, width, height);
+    // 设置超时（移动端网络较慢时防止无限等待）
+    const timeout = setTimeout(() => {
       URL.revokeObjectURL(url);
+      reject(new Error('图片加载超时，请重试'));
+    }, 30000);
+    
+    // 设置 crossOrigin 属性，某些移动端 WebView 需要
+    img.crossOrigin = 'anonymous';
+    
+    img.onload = () => {
+      clearTimeout(timeout);
       
-      // 对于无损压缩：
-      // - PNG: 使用最高质量 (1.0)
-      // - JPEG/WEBP: 使用 0.92 质量（接近无损）
-      // - AVIF: 使用 0.9 质量
-      let quality = 1.0;
-      if (enableCompression) {
-        if (format === 'image/jpeg' || format === 'image/webp') {
-          quality = 0.92;
-        } else if (format === 'image/avif') {
-          quality = 0.9;
+      try {
+        // 计算目标尺寸
+        const { width, height } = resizeOptions
+          ? calculateResizedDimensions(img.width, img.height, resizeOptions)
+          : { width: img.width, height: img.height };
+        
+        // 移动端内存限制检查：限制最大尺寸
+        const maxDimension = 4096;
+        let finalWidth = width;
+        let finalHeight = height;
+        
+        if (width > maxDimension || height > maxDimension) {
+          const scale = Math.min(maxDimension / width, maxDimension / height);
+          finalWidth = Math.round(width * scale);
+          finalHeight = Math.round(height * scale);
+          console.warn(`图片尺寸超限，已自动缩小至 ${finalWidth}x${finalHeight}`);
         }
-      }
-      
-      canvas.toBlob(
-        (blob) => {
-          if (blob) {
-            resolve(blob);
-          } else {
-            reject(new Error('转换失败'));
+        
+        const canvas = document.createElement('canvas');
+        canvas.width = finalWidth;
+        canvas.height = finalHeight;
+        
+        const ctx = canvas.getContext('2d');
+        if (!ctx) {
+          URL.revokeObjectURL(url);
+          reject(new Error('无法创建 Canvas 上下文'));
+          return;
+        }
+        
+        // 启用高质量缩放
+        ctx.imageSmoothingEnabled = true;
+        ctx.imageSmoothingQuality = 'high';
+        
+        ctx.drawImage(img, 0, 0, finalWidth, finalHeight);
+        
+        // 延迟释放 ObjectURL，确保移动端完成绘制
+        setTimeout(() => URL.revokeObjectURL(url), 100);
+        
+        // 确定输出质量
+        let quality = 1.0;
+        if (enableCompression) {
+          if (targetFormat === 'image/jpeg' || targetFormat === 'image/webp') {
+            quality = 0.92;
+          } else if (targetFormat === 'image/avif') {
+            quality = 0.9;
           }
-        },
-        format,
-        quality
-      );
+        }
+        
+        canvas.toBlob(
+          (blob) => {
+            if (blob && blob.size > 0) {
+              resolve(blob);
+            } else {
+              // Blob 生成失败，尝试回退到 PNG
+              console.warn(`${targetFormat} 生成失败，回退到 PNG`);
+              canvas.toBlob(
+                (pngBlob) => {
+                  if (pngBlob) {
+                    resolve(pngBlob);
+                  } else {
+                    reject(new Error('图片转换失败，请尝试其他格式'));
+                  }
+                },
+                'image/png',
+                1.0
+              );
+            }
+          },
+          targetFormat,
+          quality
+        );
+      } catch (err) {
+        URL.revokeObjectURL(url);
+        reject(new Error('图片处理出错：' + (err instanceof Error ? err.message : '未知错误')));
+      }
     };
     
     img.onerror = () => {
+      clearTimeout(timeout);
       URL.revokeObjectURL(url);
-      reject(new Error('图片加载失败'));
+      reject(new Error('图片加载失败，请检查文件是否损坏'));
     };
     
     img.src = url;

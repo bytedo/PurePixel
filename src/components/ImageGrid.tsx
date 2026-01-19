@@ -109,11 +109,18 @@ function ImageCard({ image }: { image: ImageConfig }) {
         </Button>
 
         {/* 图片预览 */}
-        <div className="relative aspect-[4/3] overflow-hidden bg-muted">
+        <div className="relative aspect-4/3 overflow-hidden bg-muted">
           {/* 原图 */}
           <img
             src={image.previewUrl}
             alt={image.file.name}
+            loading="eager"
+            decoding="async"
+            crossOrigin="anonymous"
+            onError={(e) => {
+              // 图片加载失败时显示占位符
+              (e.target as HTMLImageElement).src = 'data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><rect fill="%23374151" width="100" height="100"/><text x="50" y="55" text-anchor="middle" fill="%239CA3AF" font-size="12">加载失败</text></svg>';
+            }}
             className={`h-full w-full object-cover transition-opacity duration-300 ${
               image.result ? 'opacity-0' : 'opacity-100'
             }`}
@@ -123,6 +130,12 @@ function ImageCard({ image }: { image: ImageConfig }) {
             <img
               src={image.result.url}
               alt={`${image.file.name} - 已处理`}
+              loading="eager"
+              decoding="async"
+              crossOrigin="anonymous"
+              onError={(e) => {
+                (e.target as HTMLImageElement).src = 'data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><rect fill="%23374151" width="100" height="100"/><text x="50" y="55" text-anchor="middle" fill="%239CA3AF" font-size="12">加载失败</text></svg>';
+              }}
               className="absolute inset-0 h-full w-full object-cover"
             />
           )}
