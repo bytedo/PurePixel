@@ -131,7 +131,7 @@ export function Dropzone() {
       <motion.div
         className={`
           relative cursor-pointer rounded-2xl border-2 border-dashed
-          p-12 transition-all duration-300
+          p-6 sm:p-8 md:p-12 transition-all duration-300
           ${isDragOver 
             ? 'border-indigo-500 bg-indigo-500/10' 
             : 'border-border bg-card/50 hover:border-indigo-400'
@@ -160,11 +160,11 @@ export function Dropzone() {
           onChange={handleInputChange}
         />
 
-        <div className="flex flex-col items-center gap-6 text-center">
+        <div className="flex flex-col items-center gap-4 sm:gap-6 text-center">
           {/* 图标 */}
           <motion.div
             className={`
-              rounded-full p-6 transition-colors duration-300
+              rounded-full p-4 sm:p-6 transition-colors duration-300
               ${isDragOver ? 'bg-indigo-500/20' : 'bg-muted'}
             `}
             animate={isDragOver ? { rotate: [0, -10, 10, 0] } : {}}

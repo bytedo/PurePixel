@@ -61,9 +61,9 @@ export function ControlPanel() {
       initial={{ opacity: 0, x: 20 }}
       animate={{ opacity: 1, x: 0 }}
       transition={{ duration: 0.4, delay: 0.2 }}
-      className="w-full lg:w-80"
+      className="w-full lg:w-80 lg:flex-shrink-0"
     >
-      <Card className="sticky top-6 border-0 bg-card/80 backdrop-blur-xl shadow-xl">
+      <Card className="lg:sticky lg:top-6 border-0 bg-card/80 backdrop-blur-xl shadow-xl">
         <CardHeader className="pb-4">
           <CardTitle className="flex items-center gap-2 text-lg">
             <Settings2 className="h-5 w-5 text-indigo-500" />
@@ -148,13 +148,13 @@ export function ControlPanel() {
                 {globalSettings.scale}x
               </span>
             </div>
-            <div className="flex flex-wrap gap-2">
+            <div className="grid grid-cols-3 sm:grid-cols-6 gap-2">
               {scaleOptions.map((scale) => (
                 <Button
                   key={scale}
                   variant={globalSettings.scale === scale ? 'default' : 'outline'}
                   size="sm"
-                  className={`min-w-[3rem] ${
+                  className={`min-w-0 ${
                     globalSettings.scale === scale ? 'bg-indigo-600 hover:bg-indigo-700' : ''
                   }`}
                   onClick={() => updateGlobalSettings({ scale })}
