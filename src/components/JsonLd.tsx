@@ -6,7 +6,7 @@
  */
 export function JsonLd() {
   // 网站基础 URL（部署时通过环境变量 NEXT_PUBLIC_SITE_URL 设置）
-  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || '';
+  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || 'http://localhost:3000';
 
   // WebApplication 结构化数据
   const webAppSchema = {
