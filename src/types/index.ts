@@ -52,6 +52,11 @@ export interface ImageConfig {
 }
 
 /**
+ * 尺寸调整模式
+ */
+export type ResizeMode = 'none' | 'scale' | 'custom';
+
+/**
  * 全局设置，应用于所有新添加的图片
  */
 export interface GlobalSettings {
@@ -59,7 +64,10 @@ export interface GlobalSettings {
   enableCompression: boolean;
   mode: ProcessMode;
   maintainAspectRatio: boolean;
+  resizeMode: ResizeMode;
   scale?: number;
+  width?: number;
+  height?: number;
 }
 
 /**

@@ -36,25 +36,91 @@ const defaultGlobalSettings: GlobalSettings = {
   enableCompression: true,
   mode: 'convert',
   maintainAspectRatio: true,
+  resizeMode: 'none',
   scale: 1,
 };
 
 /**
- * 使用 Canvas 进行图片格式转换
+ * 尺寸调整选项
+ */
+interface ResizeOptions {
+  resizeMode: 'none' | 'scale' | 'custom';
+  scale?: number;
+  width?: number;
+  height?: number;
+  maintainAspectRatio: boolean;
+}
+
+/**
+ * 计算调整后的尺寸
+ */
+const calculateResizedDimensions = (
+  originalWidth: number,
+  originalHeight: number,
+  options: ResizeOptions
+): { width: number; height: number } => {
+  if (options.resizeMode === 'none') {
+    return { width: originalWidth, height: originalHeight };
+  }
+
+  if (options.resizeMode === 'scale' && options.scale) {
+    return {
+      width: Math.round(originalWidth * options.scale),
+      height: Math.round(originalHeight * options.scale),
+    };
+  }
+
+  if (options.resizeMode === 'custom') {
+    let targetWidth = options.width || originalWidth;
+    let targetHeight = options.height || originalHeight;
+
+    if (options.maintainAspectRatio) {
+      const aspectRatio = originalWidth / originalHeight;
+      
+      if (options.width && !options.height) {
+        // 只设置了宽度，根据宽高比计算高度
+        targetHeight = Math.round(targetWidth / aspectRatio);
+      } else if (!options.width && options.height) {
+        // 只设置了高度，根据宽高比计算宽度
+        targetWidth = Math.round(targetHeight * aspectRatio);
+      } else if (options.width && options.height) {
+        // 都设置了，按照较小的缩放比例计算
+        const scaleX = options.width / originalWidth;
+        const scaleY = options.height / originalHeight;
+        const scale = Math.min(scaleX, scaleY);
+        targetWidth = Math.round(originalWidth * scale);
+        targetHeight = Math.round(originalHeight * scale);
+      }
+    }
+
+    return { width: targetWidth, height: targetHeight };
+  }
+
+  return { width: originalWidth, height: originalHeight };
+};
+
+/**
+ * 使用 Canvas 进行图片格式转换和尺寸调整
  */
 const convertImage = async (
   file: File,
   format: string,
-  enableCompression: boolean
+  enableCompression: boolean,
+  resizeOptions?: ResizeOptions
 ): Promise<Blob> => {
   return new Promise((resolve, reject) => {
     const img = new Image();
     const url = URL.createObjectURL(file);
     
     img.onload = () => {
+      // 计算目标尺寸
+      const { width, height } = resizeOptions
+        ? calculateResizedDimensions(img.width, img.height, resizeOptions)
+        : { width: img.width, height: img.height };
+      
       const canvas = document.createElement('canvas');
-      canvas.width = img.width;
-      canvas.height = img.height;
+      canvas.width = width;
+      canvas.height = height;
       
       const ctx = canvas.getContext('2d');
       if (!ctx) {
@@ -63,7 +129,11 @@ const convertImage = async (
         return;
       }
       
-      ctx.drawImage(img, 0, 0);
+      // 启用高质量缩放
+      ctx.imageSmoothingEnabled = true;
+      ctx.imageSmoothingQuality = 'high';
+      
+      ctx.drawImage(img, 0, 0, width, height);
       URL.revokeObjectURL(url);
       
       // 对于无损压缩：
@@ -147,6 +217,8 @@ export const useImageStore = create<AppState & AppActions>((set, get) => ({
         mode: globalSettings.mode,
         maintainAspectRatio: globalSettings.maintainAspectRatio,
         scale: globalSettings.scale,
+        width: globalSettings.width,
+        height: globalSettings.height,
       },
     }));
     
@@ -210,6 +282,8 @@ export const useImageStore = create<AppState & AppActions>((set, get) => ({
           mode: globalSettings.mode,
           maintainAspectRatio: globalSettings.maintainAspectRatio,
           scale: globalSettings.scale,
+          width: globalSettings.width,
+          height: globalSettings.height,
         },
         status: 'idle' as ProcessStatus,
         result: undefined,
@@ -234,17 +308,28 @@ export const useImageStore = create<AppState & AppActions>((set, get) => ({
 
     try {
       let resultBlob: Blob;
-      const { mode, format, enableCompression } = image.settings;
+      const { globalSettings } = get();
+      const { mode, format, enableCompression, scale, width, height, maintainAspectRatio } = image.settings;
+
+      // 构建尺寸调整选项
+      const resizeOptions: ResizeOptions = {
+        resizeMode: globalSettings.resizeMode,
+        scale,
+        width,
+        height,
+        maintainAspectRatio,
+      };
 
       if (mode === 'convert') {
-        // 仅格式转换
-        resultBlob = await convertImage(image.file, format, false);
+        // 仅格式转换（包含尺寸调整）
+        resultBlob = await convertImage(image.file, format, false, resizeOptions);
       } else if (mode === 'compress') {
-        // 仅压缩（保持原格式）
-        resultBlob = await compressImage(image.file);
+        // 仅压缩（包含尺寸调整）
+        const resized = await convertImage(image.file, image.file.type, false, resizeOptions);
+        resultBlob = await compressImage(resized);
       } else {
-        // 两者都做：先转换再压缩
-        const converted = await convertImage(image.file, format, enableCompression);
+        // 两者都做：先转换（含尺寸调整）再压缩
+        const converted = await convertImage(image.file, format, enableCompression, resizeOptions);
         if (enableCompression) {
           resultBlob = await compressImage(converted);
         } else {

@@ -140,29 +140,110 @@ export function ControlPanel() {
             </div>
           )}
 
-          {/* 缩放比例 */}
+          {/* 尺寸调整 */}
           <div className="space-y-3">
-            <div className="flex items-center justify-between">
-              <label className="text-sm font-medium text-foreground">缩放比例</label>
-              <span className="text-sm font-mono text-indigo-500">
-                {globalSettings.scale}x
-              </span>
+            <label className="text-sm font-medium text-foreground">尺寸调整</label>
+            
+            {/* 调整模式选择 */}
+            <div className="grid grid-cols-3 gap-2">
+              <Button
+                variant={globalSettings.resizeMode === 'none' ? 'default' : 'outline'}
+                size="sm"
+                className={globalSettings.resizeMode === 'none' ? 'bg-indigo-600 hover:bg-indigo-700' : ''}
+                onClick={() => updateGlobalSettings({ resizeMode: 'none' })}
+              >
+                原尺寸
+              </Button>
+              <Button
+                variant={globalSettings.resizeMode === 'scale' ? 'default' : 'outline'}
+                size="sm"
+                className={globalSettings.resizeMode === 'scale' ? 'bg-indigo-600 hover:bg-indigo-700' : ''}
+                onClick={() => updateGlobalSettings({ resizeMode: 'scale' })}
+              >
+                缩放
+              </Button>
+              <Button
+                variant={globalSettings.resizeMode === 'custom' ? 'default' : 'outline'}
+                size="sm"
+                className={globalSettings.resizeMode === 'custom' ? 'bg-indigo-600 hover:bg-indigo-700' : ''}
+                onClick={() => updateGlobalSettings({ resizeMode: 'custom' })}
+              >
+                自定义
+              </Button>
             </div>
-            <div className="grid grid-cols-3 sm:grid-cols-6 gap-2">
-              {scaleOptions.map((scale) => (
-                <Button
-                  key={scale}
-                  variant={globalSettings.scale === scale ? 'default' : 'outline'}
-                  size="sm"
-                  className={`min-w-0 ${
-                    globalSettings.scale === scale ? 'bg-indigo-600 hover:bg-indigo-700' : ''
-                  }`}
-                  onClick={() => updateGlobalSettings({ scale })}
-                >
-                  {scale}x
-                </Button>
-              ))}
-            </div>
+
+            {/* 缩放比例选项 */}
+            {globalSettings.resizeMode === 'scale' && (
+              <div className="space-y-2">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs text-muted-foreground">缩放比例</span>
+                  <span className="text-sm font-mono text-indigo-500">{globalSettings.scale}x</span>
+                </div>
+                <div className="grid grid-cols-3 sm:grid-cols-6 gap-2">
+                  {scaleOptions.map((scale) => (
+                    <Button
+                      key={scale}
+                      variant={globalSettings.scale === scale ? 'default' : 'outline'}
+                      size="sm"
+                      className={`min-w-0 ${
+                        globalSettings.scale === scale ? 'bg-indigo-600 hover:bg-indigo-700' : ''
+                      }`}
+                      onClick={() => updateGlobalSettings({ scale })}
+                    >
+                      {scale}x
+                    </Button>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* 自定义尺寸输入 */}
+            {globalSettings.resizeMode === 'custom' && (
+              <div className="space-y-3">
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="space-y-1.5">
+                    <label className="text-xs text-muted-foreground">宽度 (px)</label>
+                    <input
+                      type="number"
+                      min="1"
+                      max="8192"
+                      placeholder="自动"
+                      value={globalSettings.width || ''}
+                      onChange={(e) => updateGlobalSettings({ 
+                        width: e.target.value ? parseInt(e.target.value) : undefined 
+                      })}
+                      className="w-full h-9 px-3 rounded-md border border-input bg-background text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                    />
+                  </div>
+                  <div className="space-y-1.5">
+                    <label className="text-xs text-muted-foreground">高度 (px)</label>
+                    <input
+                      type="number"
+                      min="1"
+                      max="8192"
+                      placeholder="自动"
+                      value={globalSettings.height || ''}
+                      onChange={(e) => updateGlobalSettings({ 
+                        height: e.target.value ? parseInt(e.target.value) : undefined 
+                      })}
+                      className="w-full h-9 px-3 rounded-md border border-input bg-background text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                    />
+                  </div>
+                </div>
+                <div className="flex items-center gap-2">
+                  <input
+                    type="checkbox"
+                    id="maintainAspectRatio"
+                    checked={globalSettings.maintainAspectRatio}
+                    onChange={(e) => updateGlobalSettings({ maintainAspectRatio: e.target.checked })}
+                    className="h-4 w-4 rounded border-input text-indigo-600 focus:ring-indigo-500"
+                  />
+                  <label htmlFor="maintainAspectRatio" className="text-sm text-muted-foreground">
+                    保持宽高比
+                  </label>
+                </div>
+              </div>
+            )}
           </div>
 
           {/* 操作按钮 */}
