@@ -83,7 +83,7 @@ export interface AppState {
  * 应用操作接口
  */
 export interface AppActions {
-  addFiles: (files: File[]) => void;
+  addFiles: (files: File[]) => Promise<void>;
   removeImage: (id: string) => void;
   updateSettings: (
     id: string,

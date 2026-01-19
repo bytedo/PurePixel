@@ -274,16 +274,31 @@ export const useImageStore = create<AppState & AppActions>((set, get) => ({
   isProcessing: false,
 
   /**
-   * 添加图片文件
+   * 添加图片文件（使用 FileReader 生成 Base64 预览，移动端兼容性更好）
    */
-  addFiles: (files: File[]) => {
+  addFiles: async (files: File[]) => {
     const { globalSettings } = get();
     const validFiles = files.filter((file) => file.type.startsWith('image/'));
     
-    const newImages: ImageConfig[] = validFiles.map((file) => ({
+    // 使用 FileReader 将文件转换为 Base64 Data URL
+    const fileToDataUrl = (file: File): Promise<string> => {
+      return new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve(reader.result as string);
+        reader.onerror = () => reject(new Error('文件读取失败'));
+        reader.readAsDataURL(file);
+      });
+    };
+    
+    // 并行读取所有文件
+    const previewUrls = await Promise.all(
+      validFiles.map((file) => fileToDataUrl(file).catch(() => ''))
+    );
+    
+    const newImages: ImageConfig[] = validFiles.map((file, index) => ({
       id: generateId(),
       file,
-      previewUrl: URL.createObjectURL(file),
+      previewUrl: previewUrls[index] || '',
       status: 'idle' as ProcessStatus,
       settings: {
         format: globalSettings.format,
@@ -411,7 +426,17 @@ export const useImageStore = create<AppState & AppActions>((set, get) => ({
         }
       }
 
-      const resultUrl = URL.createObjectURL(resultBlob);
+      // 使用 FileReader 将 Blob 转换为 Base64 Data URL（移动端兼容性更好）
+      const blobToDataUrl = (blob: Blob): Promise<string> => {
+        return new Promise((resolve, reject) => {
+          const reader = new FileReader();
+          reader.onload = () => resolve(reader.result as string);
+          reader.onerror = () => reject(new Error('Blob 读取失败'));
+          reader.readAsDataURL(blob);
+        });
+      };
+
+      const resultUrl = await blobToDataUrl(resultBlob);
       const compressionRatio = 1 - resultBlob.size / image.file.size;
 
       set((state) => ({
