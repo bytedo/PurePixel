@@ -1,0 +1,11 @@
+# PurePixel Robots.txt
+
+User-agent: *
+Allow: /
+
+# 禁止爬取 Next.js 内部路径
+Disallow: /_next/
+Disallow: /api/
+
+# Sitemap 位置（部署后请修改为实际域名）
+# Sitemap: https://your-domain.com/sitemap.xml
